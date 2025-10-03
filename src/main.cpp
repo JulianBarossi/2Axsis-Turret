@@ -13,7 +13,11 @@ SJSU Robotics Trial
 #ifdef MAIN
 mpu6050 mpu;
 My_servo pitch(9,0,180,90);
-// My_servo roll(10,0,180,90); 
+My_servo roll(10,0,180,90);
+My_servo yaw(11,0,180,90); 
+
+
+static uint32_t last_loop = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -21,33 +25,50 @@ void setup() {
   mpu.init_mpu();
   pitch.init_servo();
   //roll.init_servo();
+  yaw.init_servo();
 
-  if(mpu.update()){
-    mpu.zero();
-    Serial.println("TARED MPU");
-  }
+  last_loop = micros();
+  mpu.update(0.0f);
+  mpu.calibrate();
+  Serial.println("TARED MPU");
 }
 
 void loop() {
 
   static unsigned long lastPrint = 0;
-  unsigned long now = millis();
+  unsigned long now_milli = millis();
+  uint32_t now_micro = micros();
 
-  if(mpu.update()){
+  float delta = (now_micro - last_loop);
+  last_loop = now_micro;
+
+  delta *= 1e-6;
+
+  if(mpu.update(delta)){
     
-
     //int roll_angle = map((int)mpu.getRoll(), -90, 90, 0, 180);
     int pitch_angle = map((int)mpu.getPitch(), -90, 90, 0, 180);
+    int yaw_angle = map((int)mpu.getYaw(), -90, 90, 0, 180);
 
-    pitch.write(pitch_angle);
+    yaw.write(yaw_angle);
     //roll.write(roll_angle);
+    pitch.write(pitch_angle);
 
-    if (now - lastPrint >= 1000){
-      lastPrint = now;
-      Serial.print("Pitch: ");
-      Serial.print(mpu.getPitch());
-      Serial.print("    Roll:");
-      Serial.println(mpu.getRoll());
+ 
+    if (now_milli - lastPrint >= 1000){
+
+      float ax = mpu.getAx(), ay = mpu.getAy(), az = mpu.getAz();          
+      float gx = mpu.getGy(), gy = mpu.getGy(), gz = mpu.getGz(); 
+
+      lastPrint = now_milli;
+
+      Serial.println("Acceleration Gravity: ");
+      Serial.print(ax,3); Serial.print(","); Serial.print(ay,3); Serial.print(","); Serial.println(az,3);
+
+
+      Serial.println("Gyro Degrees per Second: ");
+      Serial.print(gx,1); Serial.print(","); Serial.print(gy,1); Serial.print(","); Serial.println(gz,1);
+      
     }
   }
   delay(50);
